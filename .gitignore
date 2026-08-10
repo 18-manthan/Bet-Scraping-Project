@@ -29,12 +29,14 @@ htmlcov/
 .idea/
 *.swp
 *~
+.~lock.*#
 .DS_Store
 Thumbs.db
 
 # Logs and runtime output
 *.log
 logs/
+run_results_*.csv
 
 # Selenium/browser local state
 chrome-debug/
