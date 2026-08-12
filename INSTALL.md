@@ -79,7 +79,7 @@ source venv/bin/activate
 python main.py
 ```
 
-This runs in dry-run mode. It should not place real bets.
+This runs in dry-run mode. It can add selections to the betslip, but it should not click final Submit.
 
 Review the output and the generated result file:
 
@@ -105,15 +105,21 @@ INPUT_FILE=input_data.csv python main.py
 STAKE=10 python main.py
 ```
 
-## 8. Live Run
+## 8. Non-Dry-Run
 
-Only run live mode after dry-run is verified:
+Only run this after dry-run is verified:
 
 ```bash
 STAKE=10 DRY_RUN=0 INPUT_FILE=sample_file.xlsx python main.py
 ```
 
-For first live testing, use a small input file with only 1-2 rows.
+The script still does not click final Submit. For first testing, use a small input file with only 1-2 rows.
+
+The bot keeps the betslip in `Single` mode by default. Enable `Multiple` only if it is required and tested:
+
+```bash
+USE_MULTIPLE=1 python main.py
+```
 
 ## Troubleshooting
 
@@ -134,4 +140,4 @@ If stake entry fails:
 
 - Confirm the user is logged in
 - Confirm the bet slip is visible
-- Run one dry-run first, then a small live test
+- Run one dry-run first, then a small non-dry-run test

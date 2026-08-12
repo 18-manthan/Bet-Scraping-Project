@@ -15,6 +15,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 SITE_URL = "https://www.hollywoodbets.net/betting/21/lucky-numbers/countries"
 INPUT_FILE = os.getenv("INPUT_FILE", "sample_file.xlsx")
 DRY_RUN = os.getenv("DRY_RUN", "1").strip().lower() not in {"0", "false", "no"}
+USE_MULTIPLE = os.getenv("USE_MULTIPLE", "0").strip().lower() in {"1", "true", "yes"}
 DEFAULT_STAKE = os.getenv("STAKE", "").strip()
 RESULTS_FILE = os.getenv(
     "RESULTS_FILE",
@@ -23,7 +24,11 @@ RESULTS_FILE = os.getenv(
 
 print("🚀 Starting script...")
 print(f"👉 Input file: {INPUT_FILE}")
-print(f"👉 Dry run: {'ON - Add Bet and stake entry are skipped' if DRY_RUN else 'OFF - live Add Bet is enabled'}")
+print(
+    "👉 Dry run: "
+    f"{'ON - Add Bet is clicked, Submit is never clicked' if DRY_RUN else 'OFF - Add Bet is clicked; Submit is still never clicked'}"
+)
+print(f"👉 Betslip mode: {'Multiple enabled' if USE_MULTIPLE else 'Single only'}")
 
 
 # ---------- Setup ----------
@@ -197,18 +202,13 @@ def select_numbers(job):
 
 def add_bet():
     if DRY_RUN:
-        print("🧪 DRY RUN: Skipping Add Bet")
-        return True
+        print("🧪 DRY RUN: Clicking Add Bet only; final Submit is not clicked")
     return click("//button[contains(normalize-space(.),'Add Bet')]", "Add Bet")
 
 
 def set_stake(stake):
     stake = clean_cell(stake)
     if not stake:
-        return True, ""
-
-    if DRY_RUN:
-        print(f"🧪 DRY RUN: Skipping stake entry ({stake})")
         return True, ""
 
     stake_xpaths = [
@@ -241,6 +241,21 @@ def switch_to_multiple():
 
     for xpath in toggle_xpaths:
         if click(xpath, "Multiple"):
+            time.sleep(1)
+            return True
+
+    return False
+
+
+def switch_to_single():
+    single_xpaths = [
+        "//*[normalize-space()='Single']",
+        "//span[normalize-space()='Single']",
+        "//label[.//*[normalize-space()='Single'] or contains(normalize-space(.), 'Single')]",
+    ]
+
+    for xpath in single_xpaths:
+        if click(xpath, "Single"):
             time.sleep(1)
             return True
 
@@ -430,10 +445,13 @@ ready_count = 0
 multiple_enabled = False
 rows = sorted({job["row"] for job in jobs})
 
+if not USE_MULTIPLE:
+    switch_to_single()
+
 try:
     for row_number in rows:
         row_jobs = [job for job in jobs if job["row"] == row_number]
-        should_use_multiple = len(row_jobs) > 1
+        should_use_multiple = USE_MULTIPLE and len(row_jobs) > 1
 
         print(f"\n====== ROW {row_number} ======")
 
@@ -474,27 +492,26 @@ try:
 
                 if DRY_RUN:
                     ready_count += 1
-                    log(f"Dry-run selections ready: {ready_count}")
+                    log(f"Dry-run bets added to betslip: {ready_count}")
                 else:
                     bet_count += 1
-                    log(f"Total Bets: {bet_count}")
+                    log(f"Total bets added to betslip: {bet_count}")
 
                 ok, message = set_stake(job.get("stake", ""))
                 if not ok:
                     results.append(result_row(job, "failed", message))
                     continue
 
-                if DRY_RUN:
-                    results.append(result_row(job, "dry_run" if DRY_RUN else "added", ""))
+                validation = page_validation_message()
+                if validation:
+                    print(f"⚠️ Validation warning detected: {validation}")
+                    results.append(result_row(job, "warning", validation))
+                elif DRY_RUN:
+                    results.append(result_row(job, "dry_run", "Added to betslip; Submit not clicked"))
                 else:
-                    validation = page_validation_message()
-                    if validation:
-                        print(f"⚠️ Validation warning detected: {validation}")
-                        results.append(result_row(job, "warning", validation))
-                    else:
-                        results.append(result_row(job, "added", ""))
+                    results.append(result_row(job, "added", "Added to betslip; Submit not clicked"))
 
-                if not DRY_RUN and should_use_multiple and bet_count >= 2 and not multiple_enabled:
+                if should_use_multiple and (bet_count + ready_count) >= 2 and not multiple_enabled:
                     multiple_enabled = switch_to_multiple()
 
                 time.sleep(2)

@@ -8,25 +8,32 @@ The bot can:
 - Open the Lucky Numbers page
 - Select country, game, main numbers, and bonus numbers
 - Skip entries when required numbers are not available
-- Run safely in dry-run mode without placing real bets
+- Run safely in dry-run mode without pressing final Submit
 - Optionally enter a stake amount
+- Keep the betslip in `Single` mode by default
 - Save run results to a CSV report
 
 ## Important Safety Note
 
-Dry-run mode is enabled by default. A normal run does not click the real Add Bet button.
+Dry-run mode is enabled by default. A normal run can click `Add Bet` and add selections to the betslip, but it does not click the final `Submit` button.
 
 ```bash
 python main.py
 ```
 
-Live mode must be enabled explicitly:
+Non-dry-run mode must be enabled explicitly:
 
 ```bash
 DRY_RUN=0 python main.py
 ```
 
-Use live mode only after the dry-run output has been reviewed.
+Use this only after the dry-run output has been reviewed. The script still does not click final `Submit`.
+
+By default, the bot does not switch to `Multiple`. To explicitly allow Multiple mode:
+
+```bash
+USE_MULTIPLE=1 python main.py
+```
 
 ## Daily Run Steps
 
@@ -99,7 +106,7 @@ Use one stake for all rows:
 STAKE=10 python main.py
 ```
 
-Use live mode with stake:
+Use non-dry-run mode with stake:
 
 ```bash
 STAKE=10 DRY_RUN=0 python main.py
@@ -111,8 +118,8 @@ Stake can also be supplied in the Excel/CSV input using a `Stake` column.
 
 The result CSV may contain:
 
-- `dry_run`: selection was valid, but no real bet was placed
-- `added`: live Add Bet action completed
+- `dry_run`: selection was added to betslip, but final Submit was not clicked
+- `added`: Add Bet action completed; final Submit was not clicked
 - `skipped`: required numbers were missing
 - `failed`: country/game/stake/action failed
 - `warning`: site validation warning was detected
