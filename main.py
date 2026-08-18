@@ -13,10 +13,23 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 
 SITE_URL = "https://www.hollywoodbets.net/betting/21/lucky-numbers/countries"
-INPUT_FILE = os.getenv("INPUT_FILE", "sample_file.xlsx")
+INPUT_FILE = os.getenv("INPUT_FILE", "1sample_file.xlsx")
+# DRY_RUN=1: add bets to betslip only, never click final Submit.
+# DRY_RUN=0: allow non-dry-run actions; final Submit still needs SUBMIT_EACH_BET=1.
 DRY_RUN = os.getenv("DRY_RUN", "1").strip().lower() not in {"0", "false", "no"}
 USE_MULTIPLE = os.getenv("USE_MULTIPLE", "0").strip().lower() in {"1", "true", "yes"}
+# SUBMIT_EACH_BET=0: do not click final Submit after Add Bet.
+# SUBMIT_EACH_BET=1 with DRY_RUN=0: click Submit after each clean Add Bet.
+SUBMIT_EACH_BET = os.getenv("SUBMIT_EACH_BET", "0").strip().lower() in {"1", "true", "yes"}
 DEFAULT_STAKE = os.getenv("STAKE", "").strip()
+ERROR_RETRIES = int(os.getenv("ERROR_RETRIES", "3"))
+ACTION_DELAY = float(os.getenv("ACTION_DELAY", "0.3"))
+NAV_DELAY = float(os.getenv("NAV_DELAY", "0.4"))
+ERROR_RETRY_DELAY = float(os.getenv("ERROR_RETRY_DELAY", "2"))
+SUBMIT_WAIT = float(os.getenv("SUBMIT_WAIT", "6"))
+SUBMIT_RESULT_DELAY = float(os.getenv("SUBMIT_RESULT_DELAY", "1.2"))
+CLOUDFLARE_WAIT = int(os.getenv("CLOUDFLARE_WAIT", "900"))
+CLOUDFLARE_CHECK_INTERVAL = float(os.getenv("CLOUDFLARE_CHECK_INTERVAL", "3"))
 RESULTS_FILE = os.getenv(
     "RESULTS_FILE",
     f"run_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
@@ -24,11 +37,12 @@ RESULTS_FILE = os.getenv(
 
 print("🚀 Starting script...")
 print(f"👉 Input file: {INPUT_FILE}")
-print(
-    "👉 Dry run: "
-    f"{'ON - Add Bet is clicked, Submit is never clicked' if DRY_RUN else 'OFF - Add Bet is clicked; Submit is still never clicked'}"
-)
+submit_enabled = SUBMIT_EACH_BET and not DRY_RUN
+print("👉 Dry run: " f"{'ON - Add Bet is clicked, Submit is never clicked' if DRY_RUN else 'OFF'}")
 print(f"👉 Betslip mode: {'Multiple enabled' if USE_MULTIPLE else 'Single only'}")
+print(f"👉 Submit each bet: {'YES' if submit_enabled else 'NO'}")
+if SUBMIT_EACH_BET and DRY_RUN:
+    print("⚠️ SUBMIT_EACH_BET is ignored while DRY_RUN=1")
 
 
 # ---------- Setup ----------
@@ -38,6 +52,7 @@ options.add_experimental_option("debuggerAddress", "127.0.0.1:9222")
 driver = webdriver.Chrome(options=options)
 wait = WebDriverWait(driver, 20)
 country_wait = WebDriverWait(driver, 120)
+short_wait = WebDriverWait(driver, 12)
 
 
 # ---------- Helpers ----------
@@ -131,22 +146,111 @@ def click(xpath, label=""):
         return False
 
 
-def wait_for_countries_page():
+def quick_click(xpath, label="", timeout=6, quiet=False):
     try:
-        country_wait.until(
-            EC.presence_of_element_located(
-                (
-                    By.XPATH,
-                    "//*[contains(normalize-space(.), 'South Africa') "
-                    "or contains(normalize-space(.), 'United States') "
-                    "or contains(normalize-space(.), 'Lucky Numbers')]",
+        if label and not quiet:
+            log(f"Click: {label}")
+        el = WebDriverWait(driver, timeout).until(EC.element_to_be_clickable((By.XPATH, xpath)))
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", el)
+        driver.execute_script("arguments[0].click();", el)
+        return True
+    except Exception as e:
+        if label and not quiet:
+            print(f"❌ Failed: {label} → {e}")
+        return False
+
+
+def body_text():
+    try:
+        return driver.find_element(By.TAG_NAME, "body").text
+    except Exception:
+        return ""
+
+
+def has_lucky_numbers_error():
+    return "error displaying lucky numbers" in body_text().lower()
+
+
+def has_cloudflare_challenge():
+    text = f"{driver.title} {driver.current_url} {body_text()}".lower()
+    markers = [
+        "cloudflare",
+        "just a moment",
+        "verify you are human",
+        "performing security verification",
+        "checking your browser",
+        "ray id",
+        "i am human",
+    ]
+    return any(marker in text for marker in markers)
+
+
+def has_countries_content():
+    country_xpath = (
+        "//*[contains(@class,'accordion-title')] "
+        "| //*[contains(normalize-space(.), 'South Africa') and contains(normalize-space(.), 'United States')]"
+    )
+    try:
+        return bool(driver.find_elements(By.XPATH, country_xpath)) and not has_lucky_numbers_error()
+    except Exception:
+        return False
+
+
+def wait_for_manual_cloudflare_clear():
+    print(
+        "🛑 Cloudflare/security verification detected. "
+        "Please click 'I am human' in Chrome. The bot will wait and continue the same row."
+    )
+    deadline = time.time() + CLOUDFLARE_WAIT
+
+    while time.time() < deadline:
+        if has_countries_content() and not has_cloudflare_challenge():
+            print("✅ Cloudflare cleared. Continuing.")
+            return True
+        time.sleep(CLOUDFLARE_CHECK_INTERVAL)
+
+    print("❌ Cloudflare was not cleared before timeout.")
+    return False
+
+
+def wait_for_countries_page():
+    country_xpath = (
+        "//*[contains(@class,'accordion-title')] "
+        "| //*[contains(normalize-space(.), 'South Africa') and contains(normalize-space(.), 'United States')]"
+    )
+
+    for attempt in range(1, ERROR_RETRIES + 2):
+        try:
+            if has_cloudflare_challenge():
+                return wait_for_manual_cloudflare_clear()
+
+            if has_lucky_numbers_error():
+                print(f"⚠️ Site error detected: Error displaying Lucky Numbers. Reload attempt {attempt}/{ERROR_RETRIES + 1}")
+                driver.get(SITE_URL)
+                time.sleep(ERROR_RETRY_DELAY)
+
+            short_wait.until(
+                EC.presence_of_element_located(
+                    (
+                        By.XPATH,
+                        country_xpath,
+                    )
                 )
             )
-        )
-        return True
-    except Exception:
-        print("❌ Countries page did not load. Clear Cloudflare/login in Chrome, then run again.")
-        return False
+
+            if not has_lucky_numbers_error():
+                return True
+        except Exception:
+            if attempt <= ERROR_RETRIES:
+                print(f"⚠️ Countries page not ready. Reload attempt {attempt}/{ERROR_RETRIES}")
+                driver.get(SITE_URL)
+                time.sleep(ERROR_RETRY_DELAY)
+
+    if has_cloudflare_challenge() or not has_countries_content():
+        return wait_for_manual_cloudflare_clear()
+
+    print("❌ Countries page did not load. Clear Cloudflare/login or retry later.")
+    return False
 
 
 def select_from_grid(grid_index, numbers, label):
@@ -203,7 +307,32 @@ def select_numbers(job):
 def add_bet():
     if DRY_RUN:
         print("🧪 DRY RUN: Clicking Add Bet only; final Submit is not clicked")
-    return click("//button[contains(normalize-space(.),'Add Bet')]", "Add Bet")
+    return quick_click("//button[contains(normalize-space(.),'Add Bet')]", "Add Bet", timeout=8)
+
+
+def submit_bet():
+    if not SUBMIT_EACH_BET:
+        return False, "Submit disabled"
+
+    if DRY_RUN:
+        return False, "Submit disabled because DRY_RUN=1"
+
+    submit_xpath = "(//button[(normalize-space()='Submit' or contains(normalize-space(.),'Submit')) and not(@disabled)])[1]"
+
+    if quick_click(submit_xpath, "Submit", timeout=SUBMIT_WAIT):
+        time.sleep(SUBMIT_RESULT_DELAY)
+        validation = page_validation_message()
+        if validation:
+            return False, validation
+
+        lowered = body_text().lower()
+        success_words = ["success", "accepted", "submitted", "placed"]
+        if any(word in lowered for word in success_words):
+            return True, "Submit clicked and success message detected"
+
+        return True, "Submit clicked; please confirm in My Bets"
+
+    return False, "Submit button was not found/clickable"
 
 
 def set_stake(stake):
@@ -211,22 +340,23 @@ def set_stake(stake):
     if not stake:
         return True, ""
 
-    stake_xpaths = [
-        "//input[contains(translate(@placeholder,'STAKE','stake'),'stake')]",
-        "//input[contains(translate(@aria-label,'STAKE','stake'),'stake')]",
-        "//input[contains(translate(@name,'STAKE','stake'),'stake')]",
-        "(//input[@type='number' or @inputmode='decimal' or @inputmode='numeric'])[1]",
-    ]
+    lower_from = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    lower_to = "abcdefghijklmnopqrstuvwxyz"
+    stake_xpath = (
+        f"(//input[contains(translate(@placeholder,'{lower_from}','{lower_to}'),'stake') "
+        f"or contains(translate(@aria-label,'{lower_from}','{lower_to}'),'stake') "
+        f"or contains(translate(@name,'{lower_from}','{lower_to}'),'stake') "
+        "or @type='number' or @inputmode='decimal' or @inputmode='numeric'])[1]"
+    )
 
-    for xpath in stake_xpaths:
-        try:
-            field = wait.until(EC.element_to_be_clickable((By.XPATH, xpath)))
-            driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", field)
-            field.clear()
-            field.send_keys(stake)
-            return True, ""
-        except Exception:
-            continue
+    try:
+        field = WebDriverWait(driver, 5).until(EC.element_to_be_clickable((By.XPATH, stake_xpath)))
+        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", field)
+        field.clear()
+        field.send_keys(stake)
+        return True, ""
+    except Exception:
+        pass
 
     return False, "Stake field was not found"
 
@@ -241,7 +371,7 @@ def switch_to_multiple():
 
     for xpath in toggle_xpaths:
         if click(xpath, "Multiple"):
-            time.sleep(1)
+            time.sleep(ACTION_DELAY)
             return True
 
     return False
@@ -255,8 +385,8 @@ def switch_to_single():
     ]
 
     for xpath in single_xpaths:
-        if click(xpath, "Single"):
-            time.sleep(1)
+        if quick_click(xpath, "Single", timeout=1, quiet=True):
+            time.sleep(ACTION_DELAY)
             return True
 
     return False
@@ -442,6 +572,7 @@ if not jobs:
 results = []
 bet_count = 0
 ready_count = 0
+submitted_count = 0
 multiple_enabled = False
 rows = sorted({job["row"] for job in jobs})
 
@@ -462,6 +593,10 @@ try:
             )
 
             try:
+                if not wait_for_countries_page():
+                    results.append(result_row(job, "failed", "Lucky Numbers page did not recover"))
+                    continue
+
                 country_xpath = (
                     "//*[contains(@class,'accordion-title') and "
                     f"contains(normalize-space(.),'{job['country']}')]"
@@ -470,7 +605,7 @@ try:
                     results.append(result_row(job, "failed", "Country was not found/clickable"))
                     continue
 
-                time.sleep(2)
+                time.sleep(ACTION_DELAY)
 
                 if not click(f"//span[normalize-space()='{job['game']}']", f"Game {job['game']}"):
                     results.append(result_row(job, "failed", "Game was not found/clickable"))
@@ -478,7 +613,7 @@ try:
 
                 wait.until(lambda d: slug(job["game"]) in d.current_url.lower())
                 log("Game opened")
-                time.sleep(2)
+                time.sleep(ACTION_DELAY)
 
                 ok, message = select_numbers(job)
                 if not ok:
@@ -506,6 +641,15 @@ try:
                 if validation:
                     print(f"⚠️ Validation warning detected: {validation}")
                     results.append(result_row(job, "warning", validation))
+                elif SUBMIT_EACH_BET and not DRY_RUN:
+                    submitted, message = submit_bet()
+                    if submitted:
+                        submitted_count += 1
+                        log(f"Submitted bets: {submitted_count}")
+                        results.append(result_row(job, "submitted", message))
+                    else:
+                        print(f"❌ Submit failed/skipped: {message}")
+                        results.append(result_row(job, "submit_failed", message))
                 elif DRY_RUN:
                     results.append(result_row(job, "dry_run", "Added to betslip; Submit not clicked"))
                 else:
@@ -514,7 +658,7 @@ try:
                 if should_use_multiple and (bet_count + ready_count) >= 2 and not multiple_enabled:
                     multiple_enabled = switch_to_multiple()
 
-                time.sleep(2)
+                time.sleep(ACTION_DELAY)
 
             except Exception as e:
                 print(f"❌ Error: {e}")
@@ -522,7 +666,7 @@ try:
             finally:
                 driver.get(SITE_URL)
                 wait_for_countries_page()
-                time.sleep(3)
+                time.sleep(NAV_DELAY)
 finally:
     write_results(results)
     print(f"\n📝 Results saved to {RESULTS_FILE}")

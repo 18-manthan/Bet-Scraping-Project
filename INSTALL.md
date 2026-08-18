@@ -107,13 +107,25 @@ STAKE=10 python main.py
 
 ## 8. Non-Dry-Run
 
-Only run this after dry-run is verified:
+Add selections to betslip without final Submit:
 
 ```bash
 STAKE=10 DRY_RUN=0 INPUT_FILE=sample_file.xlsx python main.py
 ```
 
-The script still does not click final Submit. For first testing, use a small input file with only 1-2 rows.
+The script still does not click final Submit.
+
+Submit every valid bet immediately after Add Bet:
+
+```bash
+STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
+```
+
+For first controlled testing, use a small input file with only 1-2 rows:
+
+```bash
+STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=small_test.xlsx python main.py
+```
 
 The bot keeps the betslip in `Single` mode by default. Enable `Multiple` only if it is required and tested:
 
@@ -129,6 +141,13 @@ If the script cannot find countries:
 - Make sure Cloudflare verification is completed
 - Make sure the user is logged in
 - Make sure the Lucky Numbers countries page is visible
+- If the site shows `Error displaying Lucky Numbers`, the bot will retry automatically
+
+Adjust retry count:
+
+```bash
+ERROR_RETRIES=5 python main.py
+```
 
 If numbers are skipped:
 
