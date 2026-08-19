@@ -4,29 +4,36 @@ Selenium automation for the Hollywoodbets Lucky Numbers flow. The bot reads an E
 
 ## Real Submit Command
 
-Use this command when you want the bot to submit bets one by one in real time:
+Use this command when one Excel row should be added as Multiple and submitted once:
 
 ```bash
-STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
 ```
 
 Meaning:
 
+- `USE_MULTIPLE=1`: add all jobs from one Excel row, click `Multiple`, then submit the row once
 - `STAKE=1`: enter stake amount `1` for each bet
 - `DRY_RUN=0`: allow non-dry-run actions
-- `SUBMIT_EACH_BET=1`: after each clean `Add Bet`, click final `Submit`
+- `SUBMIT_EACH_BET=1`: click final `Submit`
 - `python main.py`: run the bot
 
 Flow:
 
 ```text
-Select numbers -> Add Bet -> Enter stake -> Submit -> Next bet
+Row leg 1 -> Add Bet -> Row leg 2 -> Add Bet -> Click Multiple -> Enter stake -> Submit once -> Next row
 ```
 
 Use a specific input file:
 
 ```bash
-STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
+USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
+```
+
+For single-bet submit mode, use:
+
+```bash
+STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
 ```
 
 ## What The Bot Does
@@ -35,11 +42,14 @@ STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
 - Selects country, game, main numbers, and bonus numbers
 - Adds valid selections to the betslip
 - Optionally enters stake
+- Waits for manual login before processing rows
+- Asks whether to start from beginning, resume, or manually choose a row
 - Keeps betslip in `Single` mode by default
 - Can submit each bet immediately after `Add Bet` when explicitly enabled
 - Skips entries when required numbers are missing
 - Retries if the site shows `Error displaying Lucky Numbers`
 - Pauses for manual Cloudflare verification and resumes the same row
+- Avoids unnecessary page reloads and uses browser back/fallback reload for faster navigation
 - Saves a run report as `run_results_YYYYMMDD_HHMMSS.csv`
 
 ## Files
@@ -75,6 +85,8 @@ In that Chrome window:
 2. Complete Cloudflare/security verification manually.
 3. Log in manually.
 4. Open the Lucky Numbers countries page.
+
+If you run the bot before login is complete, it will wait until the logged-in session is detected.
 
 Keep this Chrome window open while running the bot.
 
@@ -147,10 +159,22 @@ STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=small_test.xlsx python main.py
 
 ### 6. Enable Multiple Mode
 
-Default is `Single` mode. Enable `Multiple` only if required:
+Default is `Single` mode. Enable `Multiple` when one Excel row should be submitted as one Multiple bet:
 
 ```bash
 USE_MULTIPLE=1 python main.py
+```
+
+Real row-wise Multiple submit:
+
+```bash
+USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```
+
+With a specific input file:
+
+```bash
+USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
 ```
 
 ### 7. Speed Tuning
@@ -158,7 +182,7 @@ USE_MULTIPLE=1 python main.py
 Default speed is already optimized. If needed:
 
 ```bash
-ACTION_DELAY=0.1 NAV_DELAY=0.2 SUBMIT_WAIT=4 SUBMIT_RESULT_DELAY=0.8 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+ACTION_DELAY=0.1 NAV_DELAY=0.2 SUBMIT_WAIT=4 SUBMIT_RESULT_TIMEOUT=5 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
 ```
 
 ### 8. Increase Site Error Retries
@@ -169,6 +193,42 @@ If the site often shows `Error displaying Lucky Numbers`:
 ERROR_RETRIES=5 python main.py
 ```
 
+### 9. Start Or Resume Rows
+
+By default, the bot asks where to start:
+
+```text
+Where should the script start?
+1. Start from beginning: row 1
+2. Resume after latest result file (...): row X
+3. Enter row number manually
+Select 1/2/3 [1]:
+```
+
+Options:
+
+- Press `1` or Enter: start from first row.
+- Press `2`: resume after the latest `run_results_*.csv`.
+- Press `3`: manually enter row number.
+
+Skip the prompt and start from the beginning:
+
+```bash
+START_MODE=start USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```
+
+Skip the prompt and resume after the latest `run_results_*.csv` file:
+
+```bash
+START_MODE=resume USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```
+
+Skip the prompt and start from a specific row:
+
+```bash
+START_ROW=25 USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```
+
 ## Important Flags
 
 - `DRY_RUN=1`: default; add to betslip only, never submit
@@ -176,7 +236,12 @@ ERROR_RETRIES=5 python main.py
 - `SUBMIT_EACH_BET=1`: with `DRY_RUN=0`, click `Submit` after each clean `Add Bet`
 - `STAKE=10`: use stake `10` for each bet unless input file has its own stake
 - `INPUT_FILE=filename.xlsx`: choose input file
-- `USE_MULTIPLE=1`: allow Multiple mode
+- `USE_MULTIPLE=1`: add all jobs from one Excel row, click `Multiple`, then treat that row as one bet
+- `REQUIRE_LOGIN=1`: default; wait for manual login before processing rows
+- `LOGIN_WAIT=900`: wait up to 900 seconds for manual login
+- `START_MODE=start`: start from first row without prompt
+- `START_MODE=resume`: resume after latest result CSV without prompt
+- `START_ROW=25`: start from row 25 without prompt
 
 ## Input Format
 
@@ -250,6 +315,18 @@ Increase or reduce wait time:
 
 ```bash
 CLOUDFLARE_WAIT=1200 python main.py
+```
+
+If login is not completed before running:
+
+- The bot waits automatically
+- Complete login manually in the connected Chrome window
+- Default login wait is 900 seconds
+
+Increase login wait time:
+
+```bash
+LOGIN_WAIT=1200 python main.py
 ```
 
 If stake is not entered:

@@ -69,6 +69,8 @@ In the Chrome window:
 3. Log in manually.
 4. Open the Lucky Numbers countries page.
 
+If the bot is started before login is complete, it will wait for manual login before processing rows.
+
 ## 5. Run Safe Test
 
 Open a second terminal:
@@ -121,13 +123,19 @@ Submit every valid bet immediately after Add Bet:
 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
 ```
 
+Submit one Excel row as one Multiple bet:
+
+```bash
+USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
+```
+
 For first controlled testing, use a small input file with only 1-2 rows:
 
 ```bash
 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=small_test.xlsx python main.py
 ```
 
-The bot keeps the betslip in `Single` mode by default. Enable `Multiple` only if it is required and tested:
+The bot keeps the betslip in `Single` mode by default. Enable `Multiple` when all jobs from one Excel row should be added first, then submitted once as a Multiple bet:
 
 ```bash
 USE_MULTIPLE=1 python main.py
@@ -142,6 +150,12 @@ If the script cannot find countries:
 - Make sure the user is logged in
 - Make sure the Lucky Numbers countries page is visible
 - If the site shows `Error displaying Lucky Numbers`, the bot will retry automatically
+
+If login is still pending, complete it manually in Chrome. The default wait is 900 seconds:
+
+```bash
+LOGIN_WAIT=1200 python main.py
+```
 
 Adjust retry count:
 
