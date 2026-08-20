@@ -151,6 +151,18 @@ This submits every valid bet one by one after `Add Bet`.
 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
 ```
 
+For a single country / single game file, do not use `USE_MULTIPLE=1`.
+
+```bash
+STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```
+
+Single game flow:
+
+```text
+Country -> Game -> Main Set -> Numbers -> Add Bet -> Stake -> Submit -> Next row
+```
+
 For first controlled testing, use a small file with only 1-2 rows:
 
 ```bash
