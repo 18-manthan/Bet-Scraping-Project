@@ -1,176 +1,335 @@
-# Fresh System Installation
+# Windows Installation Guide
 
-Use this guide to set up the Lucky Numbers betting bot on a new Linux system.
+Use this guide to set up and run the Lucky Numbers betting bot on a fresh Windows system.
 
-## 1. Install System Requirements
+## 1. Install Requirements
 
-Install Python, pip, venv support, and Google Chrome.
+Install these first:
 
-```bash
-sudo apt update
-sudo apt install -y python3 python3-pip python3-venv
+- Python 3.11 or newer
+- Google Chrome
+- The project folder `Scraping_Project`
+
+When installing Python, enable:
+
+```text
+Add python.exe to PATH
 ```
 
-Install Google Chrome if it is not already installed:
+After installation, open PowerShell and check:
 
-```bash
-wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-sudo apt install -y ./google-chrome-stable_current_amd64.deb
+```powershell
+python --version
+pip --version
 ```
 
-Check versions:
-
-```bash
-python3 --version
-google-chrome --version
-```
+If `python` is not found, close PowerShell, reopen it, and try again.
 
 ## 2. Copy Project
 
-Copy the project folder to the new system, then enter it:
+Copy the full project folder to the Windows system.
 
-```bash
-cd /path/to/Scraping_Project
+Example location:
+
+```text
+C:\Users\YourName\Documents\Scraping_Project
+```
+
+Open PowerShell and go to the project folder:
+
+```powershell
+cd C:\Users\YourName\Documents\Scraping_Project
 ```
 
 ## 3. Create Virtual Environment
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
+Create the virtual environment:
+
+```powershell
+python -m venv venv
 ```
 
-Upgrade pip:
+Activate it:
 
-```bash
-pip install --upgrade pip
+```powershell
+.\venv\Scripts\Activate.ps1
 ```
 
-Install Python dependencies:
+If PowerShell blocks activation, run:
 
-```bash
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Then activate again:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+When activated, you should see:
+
+```text
+(venv)
+```
+
+## 4. Install Python Packages
+
+Install dependencies:
+
+```powershell
 pip install -r requirements.txt
 ```
 
-## 4. Start Chrome for Selenium
+Optional check:
 
-The bot connects to an already-open Chrome session. Start Chrome like this:
-
-```bash
-google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug
+```powershell
+pip list
 ```
 
-Keep this terminal open while the bot runs.
+## 5. Start Chrome For Selenium
 
-In the Chrome window:
+Close all existing Chrome windows first.
 
-1. Open the betting site.
-2. Complete Cloudflare/security verification manually.
+Then start Chrome with remote debugging:
+
+```powershell
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="$env:TEMP\chrome-debug"
+```
+
+If Chrome is installed in the 32-bit program folder, use:
+
+```powershell
+& "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="$env:TEMP\chrome-debug"
+```
+
+Keep this Chrome window open while the bot runs.
+
+In that Chrome window:
+
+1. Open Hollywoodbets.
+2. Complete Cloudflare / security verification manually.
 3. Log in manually.
 4. Open the Lucky Numbers countries page.
 
-If the bot is started before login is complete, it will wait for manual login before processing rows.
+If the bot starts before login is complete, it will wait for manual login before processing rows.
 
-## 5. Run Safe Test
+## 6. Run Safe Test
 
-Open a second terminal:
+Open a second PowerShell window.
 
-```bash
-cd /path/to/Scraping_Project
-source venv/bin/activate
+Go to the project folder:
+
+```powershell
+cd C:\Users\YourName\Documents\Scraping_Project
+```
+
+Activate the virtual environment:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+Run a safe dry run:
+
+```powershell
 python main.py
 ```
 
-This runs in dry-run mode. It can add selections to the betslip, but it should not click final Submit.
+Dry run means:
 
-Review the output and the generated result file:
+- The bot can click `Add Bet`
+- The bot does not click final `Submit`
+
+Review the output and generated result file:
 
 ```text
 run_results_YYYYMMDD_HHMMSS.csv
 ```
 
-## 6. Run With Custom Input
+## 7. Run With Custom Input
 
-```bash
-INPUT_FILE=sample_file.xlsx python main.py
+```powershell
+$env:INPUT_FILE="sample_file.xlsx"
+python main.py
 ```
 
 For CSV:
 
-```bash
-INPUT_FILE=input_data.csv python main.py
+```powershell
+$env:INPUT_FILE="input_data.csv"
+python main.py
 ```
 
-## 7. Run With Stake
+## 8. Real Row-Wise Multiple Submit
 
-```bash
-STAKE=10 python main.py
+Use this when one Excel row should be added as a Multiple bet and submitted once:
+
+```powershell
+$env:USE_MULTIPLE="1"
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+python main.py
 ```
 
-## 8. Non-Dry-Run
+Flow:
 
-Add selections to betslip without final Submit:
-
-```bash
-STAKE=10 DRY_RUN=0 INPUT_FILE=sample_file.xlsx python main.py
+```text
+Row leg 1 -> Add Bet -> Row leg 2 -> Add Bet -> Click Multiple -> Enter stake -> Submit once -> Next row
 ```
 
-The script still does not click final Submit.
+With a specific input file:
 
-Submit every valid bet immediately after Add Bet:
-
-```bash
-STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
+```powershell
+$env:USE_MULTIPLE="1"
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+$env:INPUT_FILE="sample_file.xlsx"
+python main.py
 ```
 
-Submit one Excel row as one Multiple bet:
+## 9. Single Country / Single Game Submit
 
-```bash
-USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
+Use this when the file contains a single country / single game flow:
+
+```powershell
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+python main.py
 ```
 
-For first controlled testing, use a small input file with only 1-2 rows:
+Do not set `USE_MULTIPLE=1` for a single game flow.
 
-```bash
-STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=small_test.xlsx python main.py
+Flow:
+
+```text
+Country -> Game -> Main Set -> Numbers -> Add Bet -> Stake -> Submit -> Next row
 ```
 
-The bot keeps the betslip in `Single` mode by default. Enable `Multiple` when all jobs from one Excel row should be added first, then submitted once as a Multiple bet:
+## 10. Start Or Resume Rows
 
-```bash
-USE_MULTIPLE=1 python main.py
+By default, the bot asks:
+
+```text
+Where should the script start?
+1. Start from beginning: row 1
+2. Resume after latest result file (...): row X
+3. Enter row number manually
+Select 1/2/3 [1]:
 ```
 
-## Troubleshooting
+Options:
 
-If the script cannot find countries:
+- Press `1` or Enter: start from first row
+- Press `2`: resume after the latest `run_results_*.csv`
+- Press `3`: manually enter row number
+
+Start from beginning without prompt:
+
+```powershell
+$env:START_MODE="start"
+python main.py
+```
+
+Resume without prompt:
+
+```powershell
+$env:START_MODE="resume"
+python main.py
+```
+
+Start from a specific row:
+
+```powershell
+$env:START_ROW="25"
+python main.py
+```
+
+## 11. Clear PowerShell Environment Variables
+
+PowerShell environment variables stay active in the same terminal window.
+
+To clear values:
+
+```powershell
+Remove-Item Env:\USE_MULTIPLE -ErrorAction SilentlyContinue
+Remove-Item Env:\STAKE -ErrorAction SilentlyContinue
+Remove-Item Env:\DRY_RUN -ErrorAction SilentlyContinue
+Remove-Item Env:\SUBMIT_EACH_BET -ErrorAction SilentlyContinue
+Remove-Item Env:\INPUT_FILE -ErrorAction SilentlyContinue
+Remove-Item Env:\START_MODE -ErrorAction SilentlyContinue
+Remove-Item Env:\START_ROW -ErrorAction SilentlyContinue
+Remove-Item Env:\LOGIN_WAIT -ErrorAction SilentlyContinue
+Remove-Item Env:\ERROR_RETRIES -ErrorAction SilentlyContinue
+```
+
+Or close PowerShell and open a new one.
+
+## 12. Troubleshooting
+
+If Chrome connection fails:
 
 - Make sure Chrome was started with `--remote-debugging-port=9222`
-- Make sure Cloudflare verification is completed
-- Make sure the user is logged in
-- Make sure the Lucky Numbers countries page is visible
-- If the site shows `Error displaying Lucky Numbers`, the bot will retry automatically
+- Close all Chrome windows and start Chrome again using the command in this guide
+- Keep the remote-debugging Chrome window open
 
-If login is still pending, complete it manually in Chrome. The default wait is 900 seconds:
+If PowerShell says scripts are disabled:
 
-```bash
-LOGIN_WAIT=1200 python main.py
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 ```
 
-Adjust retry count:
+If login is not detected:
 
-```bash
-ERROR_RETRIES=5 python main.py
+- Log in manually in the Chrome window
+- Make sure the page shows account balance
+- Increase login wait if needed:
+
+```powershell
+$env:LOGIN_WAIT="1200"
+python main.py
+```
+
+If Cloudflare appears:
+
+- Click the manual verification in Chrome
+- The bot will wait and continue
+
+If the site shows `Error displaying Lucky Numbers`:
+
+```powershell
+$env:ERROR_RETRIES="5"
+python main.py
 ```
 
 If numbers are skipped:
 
-- The input number may not exist for that game
-- The wrong `Type of Set` may be selected
-- The site may have changed its number grid
+- Confirm the numbers exist for that game
+- Confirm `TYPE OF SET` is correct
+- Confirm the correct input file is being used
 
 If stake entry fails:
 
 - Confirm the user is logged in
-- Confirm the bet slip is visible
-- Run one dry-run first, then a small non-dry-run test
+- Confirm the betslip is visible
+- Run one dry run first, then a small non-dry-run test
+
+## 13. Safety
+
+By default:
+
+```powershell
+python main.py
+```
+
+does not click final `Submit`.
+
+Real submit happens only when both are set:
+
+```text
+DRY_RUN=0
+SUBMIT_EACH_BET=1
+```

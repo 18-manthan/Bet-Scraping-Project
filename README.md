@@ -6,8 +6,12 @@ Selenium automation for the Hollywoodbets Lucky Numbers flow. The bot reads an E
 
 Use this command when one Excel row should be added as Multiple and submitted once:
 
-```bash
-USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```powershell
+$env:USE_MULTIPLE="1"
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+python main.py
 ```
 
 Meaning:
@@ -26,14 +30,22 @@ Row leg 1 -> Add Bet -> Row leg 2 -> Add Bet -> Click Multiple -> Enter stake ->
 
 Use a specific input file:
 
-```bash
-USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
+```powershell
+$env:USE_MULTIPLE="1"
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+$env:INPUT_FILE="sample_file.xlsx"
+python main.py
 ```
 
 For single-bet submit mode, use:
 
-```bash
-STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```powershell
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+python main.py
 ```
 
 ## What The Bot Does
@@ -58,16 +70,22 @@ STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
 - `1sample_file.xlsx`: current default input file
 - `sample_file.xlsx`, `test.xlsx`, `input_data.csv`: sample/test input files
 - `requirements.txt`: Python dependencies
-- `INSTALL.md`: fresh-system setup instructions
+- `INSTALL.md`: fresh Windows setup instructions
+- `INSTALL_WINDOWS.md`: fresh Windows setup instructions
+
+## Installation Guides
+
+- `INSTALL.md`: Windows setup from scratch
+- `INSTALL_WINDOWS.md`: Windows setup from scratch
 
 ## One-Time Setup
 
 From the project folder:
 
-```bash
-cd /home/cis/Documents/Scraping_Project
-python3 -m venv venv
-source venv/bin/activate
+```powershell
+cd C:\Users\YourName\Documents\Scraping_Project
+python -m venv venv
+.\venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 ```
 
@@ -75,8 +93,8 @@ pip install -r requirements.txt
 
 The bot connects to a Chrome session that you control. Start Chrome like this:
 
-```bash
-google-chrome --remote-debugging-port=9222 --user-data-dir=/tmp/chrome-debug
+```powershell
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222 --user-data-dir="$env:TEMP\chrome-debug"
 ```
 
 In that Chrome window:
@@ -94,9 +112,9 @@ Keep this Chrome window open while running the bot.
 
 Open a second terminal:
 
-```bash
-cd /home/cis/Documents/Scraping_Project
-source venv/bin/activate
+```powershell
+cd C:\Users\YourName\Documents\Scraping_Project
+.\venv\Scripts\Activate.ps1
 ```
 
 ## Commands
@@ -105,56 +123,71 @@ source venv/bin/activate
 
 Use this for safe testing. It clicks `Add Bet`, but never clicks final `Submit`.
 
-```bash
+```powershell
 python main.py
 ```
 
 ### 2. Use A Different Input File
 
-```bash
-INPUT_FILE=sample_file.xlsx python main.py
+```powershell
+$env:INPUT_FILE="sample_file.xlsx"
+python main.py
 ```
 
 CSV example:
 
-```bash
-INPUT_FILE=input_data.csv python main.py
+```powershell
+$env:INPUT_FILE="input_data.csv"
+python main.py
 ```
 
 ### 3. Add Stake
 
 Use one stake amount for all rows:
 
-```bash
-STAKE=10 python main.py
+```powershell
+$env:STAKE="10"
+python main.py
 ```
 
 With custom input:
 
-```bash
-STAKE=10 INPUT_FILE=sample_file.xlsx python main.py
+```powershell
+$env:STAKE="10"
+$env:INPUT_FILE="sample_file.xlsx"
+python main.py
 ```
 
 ### 4. Add To Betslip Only, No Submit
 
 This is non-dry-run mode, but final `Submit` is still disabled.
 
-```bash
-STAKE=10 DRY_RUN=0 INPUT_FILE=sample_file.xlsx python main.py
+```powershell
+$env:STAKE="10"
+$env:DRY_RUN="0"
+$env:INPUT_FILE="sample_file.xlsx"
+python main.py
 ```
 
 ### 5. Add Bet Then Submit Each Bet
 
 This submits every valid bet one by one after `Add Bet`.
 
-```bash
-STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
+```powershell
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+$env:INPUT_FILE="sample_file.xlsx"
+python main.py
 ```
 
 For a single country / single game file, do not use `USE_MULTIPLE=1`.
 
-```bash
-STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```powershell
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+python main.py
 ```
 
 Single game flow:
@@ -165,44 +198,66 @@ Country -> Game -> Main Set -> Numbers -> Add Bet -> Stake -> Submit -> Next row
 
 For first controlled testing, use a small file with only 1-2 rows:
 
-```bash
-STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=small_test.xlsx python main.py
+```powershell
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+$env:INPUT_FILE="small_test.xlsx"
+python main.py
 ```
 
 ### 6. Enable Multiple Mode
 
 Default is `Single` mode. Enable `Multiple` when one Excel row should be submitted as one Multiple bet:
 
-```bash
-USE_MULTIPLE=1 python main.py
+```powershell
+$env:USE_MULTIPLE="1"
+python main.py
 ```
 
 Real row-wise Multiple submit:
 
-```bash
-USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```powershell
+$env:USE_MULTIPLE="1"
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+python main.py
 ```
 
 With a specific input file:
 
-```bash
-USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 INPUT_FILE=sample_file.xlsx python main.py
+```powershell
+$env:USE_MULTIPLE="1"
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+$env:INPUT_FILE="sample_file.xlsx"
+python main.py
 ```
 
 ### 7. Speed Tuning
 
 Default speed is already optimized. If needed:
 
-```bash
-ACTION_DELAY=0.1 NAV_DELAY=0.2 SUBMIT_WAIT=4 SUBMIT_RESULT_TIMEOUT=5 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```powershell
+$env:ACTION_DELAY="0.1"
+$env:NAV_DELAY="0.2"
+$env:SUBMIT_WAIT="4"
+$env:SUBMIT_RESULT_TIMEOUT="5"
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+python main.py
 ```
 
 ### 8. Increase Site Error Retries
 
 If the site often shows `Error displaying Lucky Numbers`:
 
-```bash
-ERROR_RETRIES=5 python main.py
+```powershell
+$env:ERROR_RETRIES="5"
+python main.py
 ```
 
 ### 9. Start Or Resume Rows
@@ -225,20 +280,35 @@ Options:
 
 Skip the prompt and start from the beginning:
 
-```bash
-START_MODE=start USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```powershell
+$env:START_MODE="start"
+$env:USE_MULTIPLE="1"
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+python main.py
 ```
 
 Skip the prompt and resume after the latest `run_results_*.csv` file:
 
-```bash
-START_MODE=resume USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```powershell
+$env:START_MODE="resume"
+$env:USE_MULTIPLE="1"
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+python main.py
 ```
 
 Skip the prompt and start from a specific row:
 
-```bash
-START_ROW=25 USE_MULTIPLE=1 STAKE=1 DRY_RUN=0 SUBMIT_EACH_BET=1 python main.py
+```powershell
+$env:START_ROW="25"
+$env:USE_MULTIPLE="1"
+$env:STAKE="1"
+$env:DRY_RUN="0"
+$env:SUBMIT_EACH_BET="1"
+python main.py
 ```
 
 ## Important Flags
@@ -280,8 +350,9 @@ Supported set types:
 
 If the input file has no stake column, pass stake from the command:
 
-```bash
-STAKE=10 python main.py
+```powershell
+$env:STAKE="10"
+python main.py
 ```
 
 ## Result Report
@@ -325,8 +396,9 @@ If Cloudflare / `I am human` appears:
 
 Increase or reduce wait time:
 
-```bash
-CLOUDFLARE_WAIT=1200 python main.py
+```powershell
+$env:CLOUDFLARE_WAIT="1200"
+python main.py
 ```
 
 If login is not completed before running:
@@ -337,8 +409,9 @@ If login is not completed before running:
 
 Increase login wait time:
 
-```bash
-LOGIN_WAIT=1200 python main.py
+```powershell
+$env:LOGIN_WAIT="1200"
+python main.py
 ```
 
 If stake is not entered:
@@ -348,14 +421,15 @@ If stake is not entered:
 
 If related-leg warnings appear:
 
-- Keep default `Single` mode
-- Avoid `USE_MULTIPLE=1` unless tested
-- Submit each bet individually with `SUBMIT_EACH_BET=1`
+- Check whether the selected games can be submitted together by the website
+- Use a small test file first
+- Review the generated result CSV for `warning` or `submit_failed` rows
 
 ## Safety
 
 By default, the bot does not click final `Submit`. Final submission only happens when both are set:
 
-```bash
-DRY_RUN=0 SUBMIT_EACH_BET=1
+```text
+DRY_RUN=0
+SUBMIT_EACH_BET=1
 ```
