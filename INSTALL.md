@@ -87,7 +87,56 @@ Optional check:
 pip list
 ```
 
-## 5. Start Chrome For Selenium
+## 5. Run The Desktop App
+
+The easiest way for the client is to use the desktop app.
+
+For final client delivery, build the Windows `.exe` first:
+
+```text
+build_windows_exe.bat
+```
+
+After the build finishes, the final app is:
+
+```text
+dist\LuckyNumbersBot.exe
+```
+
+The client can open `LuckyNumbersBot.exe` directly by double-clicking it.
+
+For development/testing before building the `.exe`, double-click this file from the project folder:
+
+```text
+start_desktop_app.bat
+```
+
+Or run it from PowerShell:
+
+```powershell
+cd C:\Users\YourName\Documents\Scraping_Project
+.\venv\Scripts\Activate.ps1
+python desktop_app.py
+```
+
+In the desktop app:
+
+1. Click `Start Chrome`.
+2. Complete Cloudflare/security verification manually.
+3. Log in manually.
+4. Select the Excel/CSV input file.
+5. Choose the run mode.
+6. Choose whether to start from beginning, resume, or start from a specific row.
+7. Click `Start Bot`.
+
+Recommended client mode for row-wise Multiple submit:
+
+```text
+Run mode: Real submit - Multiple row
+Stake: 1
+```
+
+## 6. Start Chrome Manually For Selenium
 
 Close all existing Chrome windows first.
 
@@ -114,7 +163,7 @@ In that Chrome window:
 
 If the bot starts before login is complete, it will wait for manual login before processing rows.
 
-## 6. Run Safe Test
+## 7. Run Safe Test From PowerShell
 
 Open a second PowerShell window.
 
@@ -133,7 +182,7 @@ Activate the virtual environment:
 Run a safe dry run:
 
 ```powershell
-python main.py
+python main02.py
 ```
 
 Dry run means:
@@ -147,21 +196,21 @@ Review the output and generated result file:
 run_results_YYYYMMDD_HHMMSS.csv
 ```
 
-## 7. Run With Custom Input
+## 8. Run With Custom Input
 
 ```powershell
 $env:INPUT_FILE="sample_file.xlsx"
-python main.py
+python main02.py
 ```
 
 For CSV:
 
 ```powershell
 $env:INPUT_FILE="input_data.csv"
-python main.py
+python main02.py
 ```
 
-## 8. Real Row-Wise Multiple Submit
+## 9. Real Row-Wise Multiple Submit
 
 Use this when one Excel row should be added as a Multiple bet and submitted once:
 
@@ -170,7 +219,7 @@ $env:USE_MULTIPLE="1"
 $env:STAKE="1"
 $env:DRY_RUN="0"
 $env:SUBMIT_EACH_BET="1"
-python main.py
+python main02.py
 ```
 
 Flow:
@@ -187,10 +236,10 @@ $env:STAKE="1"
 $env:DRY_RUN="0"
 $env:SUBMIT_EACH_BET="1"
 $env:INPUT_FILE="sample_file.xlsx"
-python main.py
+python main02.py
 ```
 
-## 9. Single Country / Single Game Submit
+## 10. Single Country / Single Game Submit
 
 Use this when the file contains a single country / single game flow:
 
@@ -198,7 +247,7 @@ Use this when the file contains a single country / single game flow:
 $env:STAKE="1"
 $env:DRY_RUN="0"
 $env:SUBMIT_EACH_BET="1"
-python main.py
+python main02.py
 ```
 
 Do not set `USE_MULTIPLE=1` for a single game flow.
@@ -209,7 +258,7 @@ Flow:
 Country -> Game -> Main Set -> Numbers -> Add Bet -> Stake -> Submit -> Next row
 ```
 
-## 10. Start Or Resume Rows
+## 11. Start Or Resume Rows
 
 By default, the bot asks:
 
@@ -231,24 +280,24 @@ Start from beginning without prompt:
 
 ```powershell
 $env:START_MODE="start"
-python main.py
+python main02.py
 ```
 
 Resume without prompt:
 
 ```powershell
 $env:START_MODE="resume"
-python main.py
+python main02.py
 ```
 
 Start from a specific row:
 
 ```powershell
 $env:START_ROW="25"
-python main.py
+python main02.py
 ```
 
-## 11. Clear PowerShell Environment Variables
+## 12. Clear PowerShell Environment Variables
 
 PowerShell environment variables stay active in the same terminal window.
 
@@ -268,7 +317,7 @@ Remove-Item Env:\ERROR_RETRIES -ErrorAction SilentlyContinue
 
 Or close PowerShell and open a new one.
 
-## 12. Troubleshooting
+## 13. Troubleshooting
 
 If Chrome connection fails:
 
@@ -290,7 +339,7 @@ If login is not detected:
 
 ```powershell
 $env:LOGIN_WAIT="1200"
-python main.py
+python main02.py
 ```
 
 If Cloudflare appears:
@@ -302,7 +351,14 @@ If the site shows `Error displaying Lucky Numbers`:
 
 ```powershell
 $env:ERROR_RETRIES="5"
-python main.py
+python main02.py
+```
+
+If a game page shows `Error in fetching Lucky Numbers data`, the bot refreshes the same game page first, then reopens the country/game from the countries page. Increase game data retries if needed:
+
+```powershell
+$env:GAME_DATA_RETRIES="5"
+python main02.py
 ```
 
 If numbers are skipped:
@@ -317,12 +373,12 @@ If stake entry fails:
 - Confirm the betslip is visible
 - Run one dry run first, then a small non-dry-run test
 
-## 13. Safety
+## 14. Safety
 
 By default:
 
 ```powershell
-python main.py
+python main02.py
 ```
 
 does not click final `Submit`.

@@ -13,7 +13,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 
 SITE_URL = "https://www.hollywoodbets.net/betting/21/lucky-numbers/countries"
-INPUT_FILE = os.getenv("INPUT_FILE", "1sample_file.xlsx")
+INPUT_FILE = os.getenv("INPUT_FILE", "file.xlsx")
 # DRY_RUN=1: add bets to betslip only, never click final Submit.
 # DRY_RUN=0: allow non-dry-run actions; final Submit still needs SUBMIT_EACH_BET=1.
 DRY_RUN = os.getenv("DRY_RUN", "1").strip().lower() not in {"0", "false", "no"}
@@ -23,6 +23,7 @@ USE_MULTIPLE = os.getenv("USE_MULTIPLE", "0").strip().lower() in {"1", "true", "
 SUBMIT_EACH_BET = os.getenv("SUBMIT_EACH_BET", "0").strip().lower() in {"1", "true", "yes"}
 DEFAULT_STAKE = os.getenv("STAKE", "").strip()
 ERROR_RETRIES = int(os.getenv("ERROR_RETRIES", "3"))
+GAME_DATA_RETRIES = int(os.getenv("GAME_DATA_RETRIES", "3"))
 ACTION_DELAY = float(os.getenv("ACTION_DELAY", "0.3"))
 NAV_DELAY = float(os.getenv("NAV_DELAY", "0.4"))
 ERROR_RETRY_DELAY = float(os.getenv("ERROR_RETRY_DELAY", "2"))
@@ -243,8 +244,26 @@ def body_text():
         return ""
 
 
+def lucky_numbers_error_message():
+    text = body_text()
+    lowered = text.lower()
+    messages = [
+        "error displaying lucky numbers",
+        "error in fetching lucky numbers data",
+    ]
+
+    for message in messages:
+        if message in lowered:
+            for line in text.splitlines():
+                if message in line.lower():
+                    return line.strip()
+            return message
+
+    return ""
+
+
 def has_lucky_numbers_error():
-    return "error displaying lucky numbers" in body_text().lower()
+    return bool(lucky_numbers_error_message())
 
 
 def has_cloudflare_challenge():
@@ -336,8 +355,9 @@ def wait_for_countries_page():
             if has_cloudflare_challenge():
                 return wait_for_manual_cloudflare_clear()
 
-            if has_lucky_numbers_error():
-                print(f"⚠️ Site error detected: Error displaying Lucky Numbers. Reload attempt {attempt}/{ERROR_RETRIES + 1}")
+            error_message = lucky_numbers_error_message()
+            if error_message:
+                print(f"⚠️ Site error detected: {error_message}. Reload attempt {attempt}/{ERROR_RETRIES + 1}")
                 driver.get(SITE_URL)
                 time.sleep(ERROR_RETRY_DELAY)
 
@@ -391,6 +411,58 @@ def return_to_countries_page():
         pass
 
     return open_countries_page(force=True)
+
+
+def open_game_with_retries(job):
+    last_message = ""
+    game_slug = slug(job["game"])
+
+    for attempt in range(1, GAME_DATA_RETRIES + 1):
+        if attempt > 1:
+            if attempt == 2 and game_slug in driver.current_url.lower():
+                print(f"⚠️ Lucky Numbers data error. Refreshing game page attempt {attempt}/{GAME_DATA_RETRIES}")
+                driver.refresh()
+            else:
+                print(f"⚠️ Lucky Numbers data error. Reopening game attempt {attempt}/{GAME_DATA_RETRIES}")
+                if not open_countries_page(force=True):
+                    last_message = "Lucky Numbers countries page did not recover"
+                    continue
+            time.sleep(ERROR_RETRY_DELAY)
+
+        try:
+            if game_slug not in driver.current_url.lower():
+                if not is_on_countries_page() and not return_to_countries_page():
+                    last_message = "Lucky Numbers page did not recover"
+                    continue
+
+                country_xpath = (
+                    "//*[contains(@class,'accordion-title') and "
+                    f"contains(normalize-space(.),'{job['country']}')]"
+                )
+                if not click(country_xpath, f"Country {job['country']}"):
+                    last_message = "Country was not found/clickable"
+                    continue
+
+                time.sleep(ACTION_DELAY)
+
+                if not click(f"//span[normalize-space()='{job['game']}']", f"Game {job['game']}"):
+                    last_message = "Game was not found/clickable"
+                    continue
+
+                wait.until(lambda d: game_slug in d.current_url.lower())
+
+            log("Game opened")
+            time.sleep(ACTION_DELAY)
+
+            error_message = lucky_numbers_error_message()
+            if not error_message:
+                return True, ""
+
+            last_message = error_message
+        except Exception as exc:
+            last_message = str(exc)
+
+    return False, last_message or "Lucky Numbers game data did not load"
 
 
 def select_from_grid(grid_index, numbers, label):
@@ -828,6 +900,8 @@ try:
         row_jobs = [job for job in jobs if job["row"] == row_number]
         should_use_multiple = USE_MULTIPLE and len(row_jobs) > 1
         row_added_jobs = []
+        row_failed = False
+        row_failure_message = ""
 
         print(f"\n====== ROW {row_number} ======")
 
@@ -839,41 +913,48 @@ try:
 
             try:
                 if not is_on_countries_page() and not return_to_countries_page():
-                    results.append(result_row(job, "failed", "Lucky Numbers page did not recover"))
+                    row_failure_message = "Lucky Numbers page did not recover"
+                    results.append(result_row(job, "failed", row_failure_message))
+                    if should_use_multiple:
+                        row_failed = True
+                        break
                     continue
 
-                country_xpath = (
-                    "//*[contains(@class,'accordion-title') and "
-                    f"contains(normalize-space(.),'{job['country']}')]"
-                )
-                if not click(country_xpath, f"Country {job['country']}"):
-                    results.append(result_row(job, "failed", "Country was not found/clickable"))
+                ok, message = open_game_with_retries(job)
+                if not ok:
+                    row_failure_message = message
+                    results.append(result_row(job, "failed", row_failure_message))
+                    if should_use_multiple:
+                        row_failed = True
+                        break
                     continue
-
-                time.sleep(ACTION_DELAY)
-
-                if not click(f"//span[normalize-space()='{job['game']}']", f"Game {job['game']}"):
-                    results.append(result_row(job, "failed", "Game was not found/clickable"))
-                    continue
-
-                wait.until(lambda d: slug(job["game"]) in d.current_url.lower())
-                log("Game opened")
-                time.sleep(ACTION_DELAY)
 
                 ok, message = select_set_type(job["set_type"])
                 if not ok:
                     print(f"❌ Skipping Add Bet: {message}")
                     results.append(result_row(job, "skipped", message))
+                    if should_use_multiple:
+                        row_failed = True
+                        row_failure_message = message
+                        break
                     continue
 
                 ok, message = select_numbers(job)
                 if not ok:
                     print(f"❌ Skipping Add Bet: {message}")
                     results.append(result_row(job, "skipped", message))
+                    if should_use_multiple:
+                        row_failed = True
+                        row_failure_message = message
+                        break
                     continue
 
                 if not add_bet():
-                    results.append(result_row(job, "failed", "Add Bet failed"))
+                    row_failure_message = "Add Bet failed"
+                    results.append(result_row(job, "failed", row_failure_message))
+                    if should_use_multiple:
+                        row_failed = True
+                        break
                     continue
 
                 if DRY_RUN:
@@ -916,9 +997,25 @@ try:
             except Exception as e:
                 print(f"❌ Error: {e}")
                 results.append(result_row(job, "failed", str(e)))
+                if should_use_multiple:
+                    row_failed = True
+                    row_failure_message = str(e)
+                    break
             finally:
                 return_to_countries_page()
                 time.sleep(NAV_DELAY)
+
+        if should_use_multiple and row_failed:
+            message = row_failure_message or "Multiple row failed; Submit skipped"
+            print(f"⚠️ Row {row_number} failed/incomplete: {message}")
+            if row_added_jobs:
+                print("👉 Clearing betslip before next row")
+                clear_betslip()
+                for added_job in row_added_jobs:
+                    results.append(result_row(added_job, "warning", f"Cleared because row failed: {message}"))
+            return_to_countries_page()
+            time.sleep(NAV_DELAY)
+            continue
 
         if should_use_multiple and row_added_jobs:
             if len(row_added_jobs) != len(row_jobs):
@@ -926,6 +1023,7 @@ try:
                 print(f"⚠️ {message}")
                 for added_job in row_added_jobs:
                     results.append(result_row(added_job, "warning", message))
+                print("👉 Clearing betslip before next row")
                 clear_betslip()
                 continue
 
@@ -933,6 +1031,8 @@ try:
                 message = "Multiple mode was not found/clickable"
                 for added_job in row_added_jobs:
                     results.append(result_row(added_job, "failed", message))
+                print("👉 Clearing betslip before next row")
+                clear_betslip()
                 continue
 
             row_stake = next((clean_cell(job.get("stake", "")) for job in row_added_jobs if clean_cell(job.get("stake", ""))), "")
@@ -940,6 +1040,8 @@ try:
             if not ok:
                 for added_job in row_added_jobs:
                     results.append(result_row(added_job, "failed", message))
+                print("👉 Clearing betslip before next row")
+                clear_betslip()
                 continue
 
             validation = page_validation_message()
@@ -947,6 +1049,8 @@ try:
                 print(f"⚠️ Row {row_number} validation warning detected: {validation}")
                 for added_job in row_added_jobs:
                     results.append(result_row(added_job, "warning", validation))
+                print("👉 Clearing betslip before next row")
+                clear_betslip()
             elif SUBMIT_EACH_BET and not DRY_RUN:
                 submitted, message = submit_bet()
                 if submitted:
@@ -959,12 +1063,18 @@ try:
                     print(f"❌ Row {row_number} submit failed: {message}")
                     for added_job in row_added_jobs:
                         results.append(result_row(added_job, "submit_failed", message))
+                    print("👉 Clearing betslip before next row")
+                    clear_betslip()
             elif DRY_RUN:
                 for added_job in row_added_jobs:
                     results.append(result_row(added_job, "dry_run", "Added to Multiple betslip; Submit not clicked"))
+                print("👉 Clearing dry-run betslip before next row")
+                clear_betslip()
             else:
                 for added_job in row_added_jobs:
                     results.append(result_row(added_job, "added", "Added to Multiple betslip; Submit not clicked"))
+                print("👉 Clearing betslip before next row")
+                clear_betslip()
 
             return_to_countries_page()
             time.sleep(NAV_DELAY)
