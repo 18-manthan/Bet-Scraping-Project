@@ -13,7 +13,18 @@ from selenium.webdriver.support.ui import WebDriverWait
 
 
 SITE_URL = "https://www.hollywoodbets.net/betting/21/lucky-numbers/countries"
-INPUT_FILE = os.getenv("INPUT_FILE", "file.xlsx")
+
+PROJECT_BASE = Path(os.getenv("BOT_PROJECT_DIR", Path(__file__).resolve().parent)).resolve()
+
+
+def project_path(value):
+    path = Path(value).expanduser()
+    if path.is_absolute():
+        return path
+    return PROJECT_BASE / path
+
+
+INPUT_FILE = str(project_path(os.getenv("INPUT_FILE", "file.xlsx")))
 # DRY_RUN=1: add bets to betslip only, never click final Submit.
 # DRY_RUN=0: allow non-dry-run actions; final Submit still needs SUBMIT_EACH_BET=1.
 DRY_RUN = os.getenv("DRY_RUN", "1").strip().lower() not in {"0", "false", "no"}
@@ -38,9 +49,13 @@ LOGIN_WAIT = int(os.getenv("LOGIN_WAIT", "900"))
 LOGIN_CHECK_INTERVAL = float(os.getenv("LOGIN_CHECK_INTERVAL", "2"))
 START_MODE = os.getenv("START_MODE", "").strip().lower()
 START_ROW = os.getenv("START_ROW", "").strip()
-RESULTS_FILE = os.getenv(
-    "RESULTS_FILE",
-    f"run_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+RESULTS_FILE = str(
+    project_path(
+        os.getenv(
+            "RESULTS_FILE",
+            f"run_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+        )
+    )
 )
 
 print("🚀 Starting script...")
@@ -144,7 +159,7 @@ def write_results(rows):
 
 
 def latest_results_file():
-    files = sorted(Path(".").glob("run_results_*.csv"), key=lambda path: path.stat().st_mtime, reverse=True)
+    files = sorted(PROJECT_BASE.glob("run_results_*.csv"), key=lambda path: path.stat().st_mtime, reverse=True)
     return files[0] if files else None
 
 

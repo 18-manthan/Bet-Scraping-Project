@@ -682,6 +682,8 @@ class LuckyNumbersBotApp:
             env["USE_MULTIPLE"] = "0"
 
         env["INPUT_FILE"] = self.input_file_var.get().strip()
+        env["BOT_PROJECT_DIR"] = str(PROJECT_DIR)
+        env["RESULTS_FILE"] = str(PROJECT_DIR / f"run_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv")
         env["STAKE"] = self.stake_var.get().strip()
         env["REQUIRE_LOGIN"] = "1"
         env["LOGIN_WAIT"] = self.login_wait_var.get().strip() or "900"
